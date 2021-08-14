@@ -1,0 +1,52 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWStructuredBuffer<float> AmatCenter;
+RWStructuredBuffer<float3> AmatDown;
+RWStructuredBuffer<float3> AmatUp;
+RWStructuredBuffer<float> SolidPhi; // 小于零点五则是流体区域
+int Nx;
+
+[numthreads(128,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int x = (id.x % Nx);
+    int y = (id.x % (Nx * Nx) / Nx);
+    int z = (id.x / (Nx * Nx));
+
+    if (x > 0 && SolidPhi[id.x - 1] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatDown[id.x].x -= 1;
+    }
+
+    if (x < Nx - 1 && SolidPhi[id.x + 1] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatUp[id.x].x -= 1;
+    }
+
+    if (y > 0 && SolidPhi[id.x - Nx] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatDown[id.x].y -= 1;
+    }
+
+    if (y < Nx - 1 && SolidPhi[id.x + Nx] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatUp[id.x].y -= 1;
+    }
+
+    if (z > 0 && SolidPhi[id.x - Nx * Nx] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatDown[id.x].z -= 1;
+    }
+
+    if (z < Nx - 1 && SolidPhi[id.x + Nx * Nx] < 0.5)
+    {
+        AmatCenter[id.x] += 1;
+        AmatUp[id.x].z -= 1;
+    }
+}

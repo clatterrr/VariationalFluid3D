@@ -1,0 +1,48 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWStructuredBuffer<float3> Velocity;
+RWStructuredBuffer<float3> ParticlePos;
+
+int Nx;
+float dt;
+float dx;
+
+float3 GetVelocity(float3 pos) // pos.x pos.y pos.z : 0 ~ 1
+{
+    float3 p = pos / dx;
+    if (p.x < 0)p.x = 0;
+    if (p.y < 0)p.y = 0;
+    if (p.z < 0) p.z = 0;
+    if (p.x > Nx - 2)p.x = Nx - 2;
+    if (p.y > Nx - 2)p.y = Nx - 2;
+    if (p.z > Nx - 2)p.z = Nx - 2;
+
+    int bx = floor(p.x);
+    int by = floor(p.y);
+    int bz = floor(p.z);
+
+    float fx = p.x - bx;
+    float fy = p.y - by;
+    float fz = p.z - bz;
+
+    float3 res;
+    int xidx = bz * (Nx + 1) * Nx + by * (Nx + 1) + bx;
+    res.x = (1 - fx) * Velocity[xidx].x + fx * Velocity[xidx + 1].x;
+    int yidx = bz * (Nx + 1) * Nx + by * Nx + bx;
+    res.y = (1 - fy) * Velocity[yidx].y + fy * Velocity[yidx + 1].y;
+    int zidx = bz * Nx * Nx + by * Nx + bx;
+    res.z = (1 - fz) * Velocity[zidx].z + fz * Velocity[zidx + 1].z;
+    return res;
+}
+
+[numthreads(128,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float3 pos0 = ParticlePos[id.x];
+    float3 vel0 = GetVelocity(pos0);
+    float3 pos1 = pos0 + dt * vel0;
+    float3 vel1 = GetVelocity(pos1);
+    float3 pos2 = pos1 + dt * vel1;
+    ParticlePos[id.x] = (pos0 + pos2) / 2;
+}

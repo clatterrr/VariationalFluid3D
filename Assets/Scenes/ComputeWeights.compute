@@ -1,0 +1,183 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWStructuredBuffer<float> SolidPhi;
+RWStructuredBuffer<float3> Velocity;
+RWStructuredBuffer<float3> VelocityWeights;
+
+float fractionInside(float phiLeft, float phiRight)
+{
+    /*
+    float res = 0;
+    if (phiLeft < 0 && phiRight < 0)res = 1;
+    if (phiLeft < 0 && phiRight >= 0) res = phiLeft / (phiLeft - phiRight);
+    if (phiLeft >= 0 && phiRight < 0)res = phiRight / (phiRight - phiLeft);
+    if (res < 0)res = 0;
+    if (res > 1)res = 1;
+    return res;*/
+    return 0.0f;
+}
+
+float fractionInside2(float phi_bl, float phi_br, float phi_tl, float phi_tr)
+{
+    int count = (phi_bl < 0) + (phi_br < 0) + (phi_tl < 0) + (phi_tr < 0);
+    if (count == 4)return 1;
+    if (count == 3)
+    {
+        float list0 = phi_bl, list1 = phi_br, list2 = phi_tl, list3 = phi_tr;
+        if (phi_bl < 0)
+        {
+            if (phi_br > 0)
+            {
+                list0 = phi_br;
+                list1 = phi_tr;
+                list3 = phi_bl;
+            }
+            else if (phi_tr > 0)
+            {
+                list0 = phi_tr;
+                list1 = phi_tl;
+                list3 = phi_br;
+            }
+            else
+            {
+                list0 = phi_tl;
+                list1 = phi_bl;
+                list3 = phi_tr;
+            }
+        }
+        float side0 = 1 - fractionInside(list0, list3);
+        float side1 = 1 - fractionInside(list0, list1);
+        return 1 - 0.5 * side0 * side1;
+    }
+
+    
+    else if (count == 2)
+    {
+        float list0 = phi_bl, list1 = phi_br, list2 = phi_tr, list3 = phi_tl;
+        if (phi_bl > 0)
+        {
+            if (phi_br < 0)
+            {
+                list0 = phi_br, list1 = phi_tr, list2 = phi_tl, list3 = phi_bl;
+            }
+            else if (phi_tr < 0)
+            {
+                list0 = phi_tr, list1 = phi_tl, list2 = phi_bl, list3 = phi_br;
+            }
+        }
+        else if (phi_tl < 0)
+        {
+            list0 = phi_tl, list1 = phi_bl, list2 = phi_br, list3 = phi_tr;
+        }
+
+        if (list1 < 0)
+        {
+            float side_left = fractionInside(list0, list3);
+            float side_right = fractionInside(list1, list2);
+            return 0.5f * (side_left + side_right);
+        }
+        else
+        {
+            float middle_point = (list0 + list1 + list2 + list3) / 4;
+            if (middle_point < 0)
+            {
+                float area = 0;
+                float side1 = 1 - fractionInside(list0, list3);
+                float side3 = 1 - fractionInside(list2, list3);
+
+                area += 0.5f * side1 * side3;
+
+                float side2 = 1 - fractionInside(list2, list1);
+                float side0 = 1 - fractionInside(list0, list1);
+
+                area += 0.5f * side0 * side2;
+
+                return 1 - area;
+            }
+            else
+            {
+                float area = 0;
+                float side0 = fractionInside(list0, list1);
+                float side1 = fractionInside(list0, list3);
+
+                area += 0.5f * side0 * side1;
+
+                float side2 = fractionInside(list2, list1);
+                float side3 = fractionInside(list2, list3);
+
+                area += 0.5f * side3 * side2;
+                return area;
+
+            }
+        }
+    }
+    else if (count == 1)
+    {
+        float list0 = phi_bl, list1 = phi_br, list2 = phi_tr, list3 = phi_tl;
+        if (phi_bl >= 0)
+        {
+            if (phi_br < 0)
+            {
+                list0 = phi_br, list1 = phi_tr, list2 = phi_tl, list3 = phi_bl;
+            }
+            else if (phi_tr < 0)
+            {
+                list0 = phi_tr, list1 = phi_tl, list2 = phi_bl, list3 = phi_br;
+            }
+            else
+            {
+                list0 = phi_tl, list1 = phi_bl, list2 = phi_br, list3 = phi_tr;
+            }
+            float side0 = fractionInside(list0, list3);
+            float side1 = fractionInside(list0, list1);
+            return 0.5f * side0 * side1;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+float clamp(float x)
+{
+    if (x < 0)x = 0;
+    if (x > 1)x = 1;
+    return x;
+}
+
+int Nx;
+
+[numthreads(128,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    
+    // x
+    int ix = floor(id.x % (Nx + 1));
+    int iy = floor(id.x % ((Nx + 1) * Nx) / (Nx + 1));
+    int iz = floor(id.x / ((Nx + 1) * Nx));
+
+    int Nxp = Nx + 1;
+    int idx = iz * Nxp * Nxp + iy * Nxp + ix;
+    
+    float res = fractionInside2(SolidPhi[idx], SolidPhi[idx + Nxp], SolidPhi[idx + Nxp * Nxp], SolidPhi[idx + Nxp * Nxp + Nxp]);
+    VelocityWeights[id.x].x = clamp(1 - res);
+
+    // y
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % ((Nx + 1) * Nx) / Nx);
+    iz = floor(id.x / ((Nx + 1) * Nx));
+    idx = iz * Nxp * Nxp + iy * Nxp + ix;
+    res = fractionInside2(SolidPhi[idx], SolidPhi[idx + Nxp*Nxp], SolidPhi[idx + 1], SolidPhi[idx + Nxp * Nxp + 1]);
+    VelocityWeights[id.x].y = clamp(1 - res);
+
+    // z
+
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % (Nx * Nx) / Nx);
+    iz = floor(id.x / (Nx * Nx));
+    idx = iz * Nxp * Nxp + iy * Nxp + ix;
+    res = fractionInside2(SolidPhi[idx], SolidPhi[idx + Nxp], SolidPhi[idx + 1], SolidPhi[idx + Nxp + 1]);
+    VelocityWeights[id.x].z = clamp(1 - res);
+
+    VelocityWeights[id.x].x = VelocityWeights[id.x].y = VelocityWeights[id.x].z = 1;
+}

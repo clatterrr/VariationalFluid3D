@@ -1,0 +1,17 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+StructuredBuffer<float> VecZero;
+StructuredBuffer<float> VecOne;
+RWStructuredBuffer<float> VecTwo;
+
+float FactorZero;
+float FactorOne;
+
+[numthreads(128, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    VecTwo[id.x] = VecOne[id.x] * FactorOne + FactorZero * VecZero[id.x];
+}

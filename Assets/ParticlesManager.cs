@@ -59,6 +59,8 @@ public class ParticlesManager : MonoBehaviour {
         
         computeShader.SetBuffer(kernelIndex, "Particles", particles);
 
+        
+
         material.SetBuffer("Particles", particles);
     }
 	

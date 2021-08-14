@@ -1,0 +1,44 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWStructuredBuffer<float> AmatCenter;
+RWStructuredBuffer<float3> AmatDown;
+RWStructuredBuffer<float3> AmatUp;
+
+RWStructuredBuffer<float> xVec;
+RWStructuredBuffer<float> yVec;
+int Nx;
+[numthreads(128,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float term0 = AmatCenter[id.x] * xVec[id.x];
+    int ix = (id.x % Nx);
+    int iy = (id.x % (Nx * Nx) / Nx);
+    int iz = (id.x / (Nx * Nx));
+    float term1 = 0;
+    if (ix > 0)
+    {
+        term1 += AmatDown[id.x - 1].x * xVec[id.x - 1];
+    }
+    if (ix < Nx - 1)
+    {
+        term1 += AmatUp[id.x + 1].x * xVec[id.x + 1];
+    }
+    if (iy > 0)
+    {
+        term1 += AmatDown[id.x - Nx].y * xVec[id.x - Nx];
+    }
+    if (iy < Nx - 1)
+    {
+        term1 += AmatUp[id.x + Nx].y * xVec[id.x + Nx];
+    }
+    if (iz > 0)
+    {
+        term1 += AmatDown[id.x - Nx * Nx].z * xVec[id.x - Nx * Nx];
+    }
+    if (iz < Nx - 1)
+    {
+        term1 += AmatUp[id.x + Nx * Nx].z * xVec[id.x + Nx * Nx];
+    }
+    yVec[id.x] = term0 + term1;
+}

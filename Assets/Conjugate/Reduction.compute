@@ -1,0 +1,17 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+RWStructuredBuffer<float> dot512;
+RWStructuredBuffer<float> dot64;
+int Nx;
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int halfNx = floor(Nx / 2);
+    int ix = (id.x % halfNx) * 2;
+    int iy = (id.x % (halfNx * halfNx) / halfNx) * 2;
+    int iz = (id.x / (halfNx * halfNx)) * 2;
+    int idx = iz * Nx * Nx + iy * Nx + ix;
+    float term0 = dot512[idx] + dot512[idx + 1] + dot512[idx + Nx] + dot512[idx + Nx * Nx];
+    float term1 = dot512[idx + Nx + Nx*Nx] + dot512[idx + Nx + 1] + dot512[idx + Nx * Nx + 1] + dot512[idx + Nx * Nx + Nx + 1];
+    dot64[id.x] = term0 + term1;
+}

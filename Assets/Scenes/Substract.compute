@@ -1,0 +1,42 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWStructuredBuffer<float3> Velocity;
+RWStructuredBuffer<float> Pressure;
+int Nx;
+float dx;
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int ix, iy, iz, pidx;
+    
+    // x
+    ix = floor(id.x % (Nx + 1));
+    iy = floor(id.x % ((Nx + 1) * Nx) / (Nx + 1));
+    iz = floor(id.x / ((Nx + 1) * Nx));
+    if (ix > 0 && ix < Nx && iy > 0 && iy < Nx - 1 && iz > 0 && iz < Nx - 1)
+    {
+        pidx = iz * Nx * Nx + iy * Nx + ix;
+        Velocity[id.x].x = Velocity[id.x].x + (Pressure[pidx-1] - Pressure[pidx ]) / dx;
+    }
+    
+
+    // y
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % ((Nx + 1) * Nx) / Nx);
+    iz = floor(id.x / ((Nx + 1) * Nx));
+    if (ix > 0 && ix < Nx - 1 && iy > 0 && iy < Nx  && iz > 0 && iz < Nx - 1)
+    {
+        pidx = iz * Nx * Nx + iy * Nx + ix;
+        Velocity[id.x].y = Velocity[id.x].y + (Pressure[pidx - Nx] - Pressure[pidx]) / dx;
+    }
+
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % (Nx * Nx) / Nx);
+    iz = floor(id.x / (Nx * Nx));
+    if (ix > 0 && ix < Nx - 1 && iy > 0 && iy < Nx - 1 && iz > 0 && iz < Nx)
+    {
+        pidx = iz * Nx * Nx + iy * Nx + ix;
+        Velocity[id.x].z = Velocity[id.x].z + (Pressure[pidx - Nx * Nx] - Pressure[pidx]) / dx;
+    }
+}

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 680e428ecaf31ae4196156f0951e5697
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - InitAmat: {fileID: 7200000, guid: f1653135819f3484eb760630fa1bd68f, type: 3}
+  - ScaleAdd: {fileID: 7200000, guid: a92205bdace9ef2429a58a5e26934496, type: 3}
+  - ScaleDot: {fileID: 7200000, guid: 641150e08cfa1e34a9471528cad8831a, type: 3}
+  - Reduction: {fileID: 7200000, guid: aa56a33733c04674a987528959aaa08e, type: 3}
+  - computeAx: {fileID: 7200000, guid: e90778c3f39d5d34a8e8507b32959b22, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
