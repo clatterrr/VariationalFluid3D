@@ -4,22 +4,23 @@
 RWStructuredBuffer<float> AmatCenter;
 RWStructuredBuffer<float3> AmatDown;
 RWStructuredBuffer<float3> AmatUp;
+// 速度自己有三套网格qwq
 // 小于零点五则是流体区域
 RWStructuredBuffer<float3> Velocity;
-RWStructuredBuffer<float3> VelocityWeights; // 速度自己有三套网格qwq
+RWStructuredBuffer<float3> VelocityWeights;
 RWStructuredBuffer<float> rhs;
 
 int Nx;
 float dt;
 float dx;
-[numthreads(128,1,1)]
+[numthreads(512,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     int ix = floor(id.x % Nx);
     int iy = floor(id.x % (Nx * Nx) / Nx);
     int iz = floor(id.x / (Nx * Nx));
     rhs[id.x] = 0;
-    AmatCenter[id.x];
+    AmatCenter[id.x] = 0;
     AmatDown[id.x].x = 0;
     AmatDown[id.x].y = 0;
     AmatDown[id.x].z = 0;
@@ -30,6 +31,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     int uidx;
     float term;
     // left
+    /*
     if (ix > 0)
     {
         uidx = iz * Nx * (Nx + 1) + iy * (Nx + 1) + ix;
@@ -39,7 +41,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         rhs[id.x] += VelocityWeights[uidx].x * Velocity[uidx].x / dx;
     }
     
-    if (ix < Nx - 1)
+    if (ix < Nx )
     {
         //right
         uidx = iz * Nx * (Nx + 1) + iy * (Nx + 1) + ix + 1;
@@ -59,7 +61,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         rhs[id.x] += VelocityWeights[uidx].y * Velocity[uidx].y / dx;
     }
 
-    if (iy < Nx - 1)
+    if (iy < Nx )
     {
         // up
         uidx = iz * Nx * (Nx + 1) + (iy + 1) * Nx + ix;
@@ -79,13 +81,73 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         rhs[id.x] += VelocityWeights[uidx].z * Velocity[uidx].z / dx;
     }
 
-    if (iz < Nx - 1)
+    if (iz < Nx)
     {
-        // near
+        // far
         uidx = (iz + 1) * Nx * Nx + iy * Nx + ix;
         term = VelocityWeights[uidx].z * dt / dx / dx;
         AmatCenter[id.x] += term;
         AmatUp[id.x].z -= term;
         rhs[id.x] -= VelocityWeights[uidx].z * Velocity[uidx].z / dx;
+    }
+    rhs[id.x] = -rhs[id.x];*/
+
+    if (ix > 0)
+    {
+        uidx = iz * Nx * (Nx + 1) + iy * (Nx + 1) + ix;
+        term =  dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatDown[id.x].x -= term;
+        rhs[id.x] +=  Velocity[uidx].x / dx;
+    }
+
+    if (ix < Nx)
+    {
+        //right
+        uidx = iz * Nx * (Nx + 1) + iy * (Nx + 1) + ix + 1;
+        term = dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatUp[id.x].x -= term;
+        rhs[id.x] -= Velocity[uidx].x / dx;
+    }
+
+    if (iy > 0)
+    {
+        // bottom
+        uidx = iz * Nx * (Nx + 1) + iy * Nx + ix;
+        term =  dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatDown[id.x].y -= term;
+        rhs[id.x] +=  Velocity[uidx].y / dx;
+    }
+
+    if (iy < Nx)
+    {
+        // up
+        uidx = iz * Nx * (Nx + 1) + (iy + 1) * Nx + ix;
+        term =dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatUp[id.x].y -= term;
+        rhs[id.x] -=  Velocity[uidx].y / dx;
+    }
+
+    if (iz > 0)
+    {
+        // near
+        uidx = iz * Nx * Nx + iy * Nx + ix;
+        term =  dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatDown[id.x].z -= term;
+        rhs[id.x] +=Velocity[uidx].z / dx;
+    }
+
+    if (iz < Nx)
+    {
+        // far
+        uidx = (iz + 1) * Nx * Nx + iy * Nx + ix;
+        term = VelocityWeights[uidx].z * dt / dx / dx;
+        AmatCenter[id.x] += term;
+        AmatUp[id.x].z -= term;
+        rhs[id.x] -=  Velocity[uidx].z / dx;
     }
 }

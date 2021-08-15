@@ -147,7 +147,7 @@ float clamp(float x)
 
 int Nx;
 
-[numthreads(128,1,1)]
+[numthreads(512,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     
@@ -179,5 +179,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     res = fractionInside2(SolidPhi[idx], SolidPhi[idx + Nxp], SolidPhi[idx + 1], SolidPhi[idx + Nxp + 1]);
     VelocityWeights[id.x].z = clamp(1 - res);
 
-    VelocityWeights[id.x].x = VelocityWeights[id.x].y = VelocityWeights[id.x].z = 1;
+    VelocityWeights[id.x].x = 1;
+    VelocityWeights[id.x].y = 1;
+    VelocityWeights[id.x].z = 1;
 }

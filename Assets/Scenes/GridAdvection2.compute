@@ -25,7 +25,7 @@ float interpolate(float bx, float by, float bz, int type, float3 vel)
 {
     float gx = bx - dt * vel.x / dx;
     float gy = by - dt * vel.y / dx;
-    float gz = by - dt * vel.z / dx;
+    float gz = bz - dt * vel.z / dx;
 
     int ix = floor(gx);
     int iy = floor(gy);
@@ -85,13 +85,26 @@ float interpolate(float bx, float by, float bz, int type, float3 vel)
     float3 v101 = old_field[idx + 1 + nx * ny];
     float3 v011 = old_field[idx + nx + nx * ny];
     float3 v111 = old_field[idx + 1 + nx + nx * ny];
-    float3 res =  lerp(bilerp(v000, v100, v010, v110, fx, fy), bilerp(v001, v101, v011, v111, fx, fy), fz);
+    float3 res = lerp(bilerp(v000, v100, v010, v110, fx, fy), bilerp(v001, v101, v011, v111, fx, fy), fz);
     if (type == 0)return res.x;
     else if (type == 1)return res.y;
     else return res.z;
+
+    /*
+    float3 res;
+    int xidx = bz * (Nx + 1) * Nx + by * (Nx + 1) + bx;
+    res.x = (1 - fx) * old_field[xidx].x + fx * old_field[xidx + 1].x;
+    int yidx = bz * (Nx + 1) * Nx + by * Nx + bx;
+    res.y =  (1 - fy)* old_field[yidx].y + fy * old_field[yidx + Nx].y;
+    int zidx = bz * Nx * Nx + by * Nx + bx;
+    res.z = (1 - fz) * old_field[zidx].z + fz * old_field[zidx + Nx * Nx].z;
+    if (type == 0)return res.x;
+    else if (type == 1)return res.y;
+    else return res.z;
+    */
 }
 
-[numthreads(1024, 1, 1)]
+[numthreads(512, 1, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     // x 轴 方向上的 u ，形式为 (Nx + 1) * Nx * Nx
@@ -117,4 +130,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     res.z = interpolate(basex, basey, basez, 2, old_field[id.x]);
 
     new_field[id.x] = (oldold_field[id.x] + res) / 2;
+
+   //new_field[id.x] = res;
 }

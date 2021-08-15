@@ -10,7 +10,7 @@ RWStructuredBuffer<float> VecTwo;
 float FactorZero;
 float FactorOne;
 
-[numthreads(128, 1, 1)]
+[numthreads(512, 1, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     VecTwo[id.x] = VecOne[id.x] * FactorOne + FactorZero * VecZero[id.x];

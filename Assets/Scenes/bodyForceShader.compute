@@ -2,9 +2,61 @@
 #pragma kernel CSMain
 
 RWStructuredBuffer<float3> Velocity;
-
-[numthreads(128,1,1)]
+int Nx;
+[numthreads(512,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    Velocity[id.x].y -= 1;
+    Velocity[id.x].y -= 0.2f;
+
+    //Velocity[id.x].x = 0;
+    //Velocity[id.x].y = -0.01f;
+    Velocity[id.x].z = 0;
+
+    int ix, iy, iz;
+    /*
+    ix = floor(id.x % (Nx + 1));
+    iy = floor(id.x % ((Nx + 1) * Nx) / (Nx + 1));
+    iz = floor(id.x / ((Nx + 1) * Nx));
+    if (ix == 0 || iy == 0 || iz == 0 || ix == Nx || iy == Nx - 1 || iz == Nx - 1)
+    {
+        Velocity[id.x].x = 0;
+    }
+
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % ((Nx + 1) * Nx) / Nx);
+    iz = floor(id.x / ((Nx + 1) * Nx));
+    if (ix == 0 || iy == 0 || iz == 0 || ix == Nx - 1 || iy == Nx || iz == Nx - 1)
+    {
+        Velocity[id.x].y = 0;
+    }
+
+    ix = floor(id.x % Nx);
+    iy = floor(id.x % (Nx * Nx) / Nx);
+    iz = floor(id.x / (Nx * Nx));
+    if (ix == 0 || iy == 0 || iz == 0 || ix == Nx - 1 || iy == Nx - 1 || iz == Nx)
+    {
+        Velocity[id.x].z = 0;
+    }
+   
+    
+    
+    ix = floor(id.x % (Nx + 1));
+    if (ix < 1 || ix > Nx - 1)
+    {
+        Velocity[id.x].x = 0;
+    }
+
+
+    iy = floor(id.x % ((Nx + 1) * Nx) / Nx);
+    if ( iy < 1  || iy > Nx - 1)
+    {
+        Velocity[id.x].y = 0;
+    }
+
+    iz = floor(id.x / (Nx * Nx));
+    if (iz < 1 ||  iz > Nx - 1)
+    {
+        Velocity[id.x].z = 0;
+    }
+    */
 }

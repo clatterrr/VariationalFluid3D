@@ -5,12 +5,13 @@ using UnityEngine;
 
 public class FluidManager : MonoBehaviour
 {
-    int ParticleNum = 32 ;
-    const int Nx = 8;
+    int ParticleNum = 512;
+    const int Nx = 16;
     int GridNum = Nx * Nx * Nx;
+    // 16 **3 = 4096
     int VelocityNum = (Nx + 1) * Nx * Nx;
-    float dt;
-    const float dx = 1.0f / Nx;
+    float dt = 0.05f;
+    const float dx = 1.0f / (float)Nx;
     // Start is called before the first frame update
     public Material material;
 
@@ -19,7 +20,7 @@ public class FluidManager : MonoBehaviour
     int gridWarpCount;
     int velWarpCount;
     int kernelIndex;
-    const int WARP_SIZE = 1024;
+    const int WARP_SIZE = 512;
 
     ComputeBuffer ParticlesPos;
     ComputeBuffer gridVelocity;
@@ -48,16 +49,21 @@ public class FluidManager : MonoBehaviour
     public ComputeShader solver_Reduction;
     public ComputeShader solver_computeAx;
 
-    Vector3[] initBuffer;
-    Vector3[] ZeroVelGridArray;
-    float[] ZeroFloatGridArray;
+    public GameObject spherePrefab;
+    GameObject[] sphere;
+    Vector3[] DataParticle3D;
+    Vector3[] DataVel3D;
+    Vector3[] DataGrid3d;
+    float[] DataGrid;
 
     PoissonManager solver = new PoissonManager();
 
     void Start()
     {
-        particleWarpCount = Mathf.CeilToInt((float)ParticleNum / WARP_SIZE);
-        gridWarpCount = Mathf.CeilToInt((float)GridNum / WARP_SIZE);
+        sphere = new GameObject[ParticleNum];
+
+        particleWarpCount = Mathf.CeilToInt((float)ParticleNum / WARP_SIZE) ;
+        gridWarpCount = Mathf.CeilToInt((float)GridNum / WARP_SIZE) ;
         velWarpCount = Mathf.CeilToInt((float)VelocityNum / WARP_SIZE);
 
         stride = Marshal.SizeOf(typeof(Vector3));
@@ -76,33 +82,40 @@ public class FluidManager : MonoBehaviour
         rhs = new ComputeBuffer(GridNum, stride);
         pressure = new ComputeBuffer(GridNum, stride);
 
-        initBuffer = new Vector3[ParticleNum];
-        ZeroVelGridArray = new Vector3[VelocityNum];
-        ZeroFloatGridArray = new float[GridNum];
+        DataParticle3D = new Vector3[ParticleNum];
+        DataVel3D = new Vector3[VelocityNum];
+        DataGrid = new float[GridNum];
 
-        for(int i = 0;i < GridNum;i++)
+        for (int i = 0; i < GridNum; i++)
         {
-            ZeroFloatGridArray[i] = 0;
+            DataGrid[i] = 0;
         }
-        SolidPhi.SetData(ZeroFloatGridArray);
+        SolidPhi.SetData(DataGrid);
 
         for (int i = 0; i < VelocityNum; i++)
         {
-            ZeroVelGridArray[i] = new Vector3(0.0f, 0.0f, 0.0f);
+            DataVel3D[i] = new Vector3(0.0f, 0.0f, 0.0f);
+
         }
 
         for (int i = 0; i < ParticleNum; i++)
         {
-            initBuffer[i] = new Vector3(i * 0.1f, 0.0f, 0.0f);
+            float px = Random.Range(0.4f, 0.6f);
+            float py = Random.Range(0.6f, 0.8f);
+            float pz = Random.Range(0.4f, 0.6f);
+            pz = 0.5f;
+            DataParticle3D[i] = new Vector3(px, py, pz);
+            sphere[i] = Instantiate(spherePrefab, DataParticle3D[i], Quaternion.identity);
         }
 
-        gridVelocity.SetData(ZeroVelGridArray);
-        ParticlesPos.SetData(initBuffer);
+        gridVelocity.SetData(DataVel3D);
+        ParticlesPos.SetData(DataParticle3D);
 
         kernelIndex = InitRegionShader.FindKernel("CSMain");
         InitRegionShader.SetInt("Nx", Nx);
         InitRegionShader.SetFloat("dx", dx);
         InitRegionShader.SetBuffer(kernelIndex, "phi", SolidPhi);
+        InitRegionShader.SetBuffer(kernelIndex, "pos", ParticlesPos);
         InitRegionShader.Dispatch(kernelIndex, gridWarpCount, 1, 1);
 
         solver.ScaleAdd = solver_ScaleAdd;
@@ -110,9 +123,8 @@ public class FluidManager : MonoBehaviour
         solver.Reduction = solver_Reduction;
         solver.computeAx = solver_computeAx;
 
-        material.SetBuffer("Particles", ParticlesPos);
+        
 
-        Step();
     }
 
     private void Step()
@@ -145,11 +157,12 @@ public class FluidManager : MonoBehaviour
         GridAdvection2.Dispatch(kernelIndex, velWarpCount, 1, 1);
 
         kernelIndex = bodyForceShader.FindKernel("CSMain");
+        bodyForceShader.SetInt("Nx", Nx);
         bodyForceShader.SetBuffer(kernelIndex, "Velocity", gridVelocity);
         bodyForceShader.Dispatch(kernelIndex, velWarpCount, 1, 1);
 
-        gridVelocity.GetData(ZeroVelGridArray);
-        Debug.Log("wa" + ZeroVelGridArray[0]);
+        gridVelocity.GetData(DataVel3D);
+        //Debug.Log("wa" + DataVel3D[Nx * Nx * Nx / 2 + Nx * Nx / 2 + Nx / 2].ToString("f4"));
 
         kernelIndex = computeWeights.FindKernel("CSMain");
         computeWeights.SetInt("Nx", Nx);
@@ -158,6 +171,7 @@ public class FluidManager : MonoBehaviour
         computeWeights.SetBuffer(kernelIndex, "SolidPhi", SolidPhi);
         computeWeights.Dispatch(kernelIndex, velWarpCount, 1, 1);
 
+        
         // 组装矩阵
         kernelIndex = Assemble.FindKernel("CSMain");
         Assemble.SetInt("Nx", Nx);
@@ -171,13 +185,17 @@ public class FluidManager : MonoBehaviour
         Assemble.SetBuffer(kernelIndex, "VelocityWeights", gridVelocityWeights);
         Assemble.Dispatch(kernelIndex, gridWarpCount, 1, 1);
 
-        ACenter.GetData(ZeroFloatGridArray);
-        for(int k = 0;k < GridNum;k++)
+        gridVelocity.GetData(DataVel3D);
+       // Debug.Log(DataVel3D[Nx * Nx * Nx / 2 + Nx * Nx / 2 + Nx / 2]);
+        for (int i = 0; i < VelocityNum; i++)
         {
-            if(ZeroFloatGridArray[k] != 0)
-            {
-                Debug.Log("k = " + k + " = " + ZeroFloatGridArray[k]);
-            }
+            //if (DataVel3D[i].x != 0) Debug.Log("i =" + i + " = " + DataVel3D[i]);
+        }
+
+        rhs.GetData(DataGrid);
+        for (int i = 0; i < GridNum; i++)
+        {
+            // if (DataGrid[i] != 0) Debug.Log("i =" + i + " = " + DataGrid[i]);
         }
 
         // 解方程
@@ -185,26 +203,54 @@ public class FluidManager : MonoBehaviour
         solver.AmatDown = ADown;
         solver.AmatUp = AUp;
         solver.bVec = rhs;
+        solver.Nx = Nx;
         solver.InitBuffer();
         solver.Solve();
         pressure = solver.xVec;
+
 
         // 减去压力梯度，保证速度不为零
         kernelIndex = Substract.FindKernel("CSMain");
         Substract.SetInt("Nx", Nx);
         Substract.SetFloat("dx", dx);
+        Substract.SetFloat("dt", dt);
         Substract.SetBuffer(kernelIndex, "Velocity", gridVelocity);
         Substract.SetBuffer(kernelIndex, "Pressure", pressure);
         Substract.Dispatch(kernelIndex, gridWarpCount, 1, 1);
     }
+    int cnt = 0;
     private void Update()
     {
-       
+        cnt += 1;
+       // if (cnt > 10) return;
+        Step();
+        ParticlesPos.GetData(DataParticle3D);
+        for (int i = 0; i < ParticleNum; i++)
+        {
+            sphere[i].transform.position = DataParticle3D[i];
+            //Debug.Log("pos = " + DataParticle3D[i]);
+        }
+        gridVelocity.GetData(DataVel3D);
+        for (int i = 0; i < VelocityNum; i++)
+        {
+            int basex = i % (Nx + 1);
+            int basey = i % ((Nx + 1) * Nx) / (Nx + 1);
+            int basez = i / ((Nx + 1) * Nx);
 
-    }
-    void OnRenderObject()
-    {
-        material.SetPass(0);
-        Graphics.DrawProceduralNow(MeshTopology.Points, 1, ParticleNum);
+            //Debug.Log("x = " + basex + " y =  " + basey + " z = " + basez + " so vel = " + DataVel3D[i].x.ToString("f4"));
+
+            basex = i % Nx;
+            basey = i % ((Nx + 1) * Nx) / Nx;
+            basez = i / ((Nx + 1) * Nx);
+
+            //Debug.Log("x = " + basex + " y =  " + basey + " z = " + basez + " so vel = " + DataVel3D[i].y.ToString("f4"));
+
+            basex = i % Nx;
+            basey = i % (Nx  * Nx) / Nx;
+            basez = i / (Nx * Nx);
+
+            //Debug.Log("x = " + basex + " y =  " + basey + " z = " + basez + " so vel = " + DataVel3D[i].z.ToString("f4"));
+        }
+
     }
 }

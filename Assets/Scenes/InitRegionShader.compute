@@ -4,9 +4,10 @@
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 RWStructuredBuffer<float> phi;
+RWStructuredBuffer<float3> pos;
 int Nx;
 float dx;
-[numthreads(128,1,1)]
+[numthreads(512,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     int ix = floor(id.x % Nx);
@@ -17,5 +18,4 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float py = iy * dx;
     float pz = iz * dx;
     phi[id.x] = (px - 0.5) * (px - 0.5) + (py - 0.5) * (py - 0.5) + (pz - 0.5) * (pz - 0.5) - 0.3;
-
 }
